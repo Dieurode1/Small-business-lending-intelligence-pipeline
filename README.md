@@ -29,7 +29,7 @@ The project is built as a production-grade pipeline — not a notebook — with 
 | Warehouse | Snowflake |
 | Transformation | dbt |
 | Orchestration | Dagster |
-| Ingestion | Python (REST APIs + CSV) |
+| Ingestion | Fivetran (REST APIs + CSV) |
 | BI / app layer | Streamlit |
 | CI/CD | GitHub Actions, sqlfluff |
 
