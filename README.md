@@ -1,4 +1,4 @@
-# Small Business Lending Intelligence Platform
+ Small Business Lending Intelligence Platform
 
 > An end-to-end data engineering project that turns public SBA loan data and federal economic indicators into a queryable market intelligence layer for small business lending.
 
@@ -26,10 +26,11 @@ The project is built as a production-grade pipeline — not a notebook — with 
 | Layer | Tool |
 |---|---|
 | Cloud storage | AWS S3 |
+| Ingestion (S3 → Snowflake) | Snowpipe |
 | Warehouse | Snowflake |
 | Transformation | dbt |
 | Orchestration | Dagster |
-| Ingestion | Fivetran (REST APIs + CSV) |
+| Extraction | Python (REST APIs + CSV) |
 | BI / app layer | Streamlit |
 | CI/CD | GitHub Actions, sqlfluff |
 
@@ -50,17 +51,16 @@ The project is built as a production-grade pipeline — not a notebook — with 
 ## Architecture
 
 ```
-   ┌─────────────┐    ┌──────────┐    ┌─────────┐    ┌───────────┐    ┌─────────────┐    ┌───────────┐
-   │ SBA / FRED  │───▶│ Fivetran │───▶│   S3    │───▶│ Snowflake │───▶│     dbt     │───▶│ Streamlit │
-   │ BLS / Census│    │(connector)│    │ (raw)   │    │   (RAW)   │    │ (STG → MART)│    │   app     │
-   └─────────────┘    └──────────┘    └─────────┘    └───────────┘    └─────────────┘    └───────────┘
-                                                           ▲                  ▲
-                                                           │                  │
-                                                     ┌──────────┐             │
-                                                     │ Dagster  │─────────────┘
-                                                     │          │  orchestration,
-                                                     └──────────┘  partitions, sensors
-                        └──────────┘                         
+   ┌─────────────┐    ┌──────────┐    ┌─────────┐    ┌──────────┐    ┌───────────┐    ┌─────────────┐    ┌───────────┐
+   │ SBA / FRED  │───▶│  Python  │───▶│   S3    │───▶│ Snowpipe │───▶│ Snowflake │───▶│     dbt     │───▶│ Streamlit │
+   │ BLS / Census│    │extractors│    │ (raw,   │    │  (auto-  │    │   (RAW)   │    │ (STG → MART)│    │   app     │
+   └─────────────┘    └──────────┘    │partition)│    │ ingest)  │    └───────────┘    └─────────────┘    └───────────┘
+                                      └─────────┘    └──────────┘          ▲                  ▲
+                                                                           │                  │
+                                                                     ┌──────────┐             │
+                                                                     │ Dagster  │─────────────┘
+                                                                     │          │  orchestration,
+                                                                     └──────────┘  partitions, sensors
 ```
 
 ---
