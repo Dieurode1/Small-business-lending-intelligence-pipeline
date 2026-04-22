@@ -1,4 +1,4 @@
- Small Business Lending Intelligence Platform
+# Small Business Lending Intelligence Platform
 
 > An end-to-end data engineering project that turns public SBA loan data and federal economic indicators into a queryable market intelligence layer for small business lending.
 
@@ -30,7 +30,7 @@ The project is built as a production-grade pipeline — not a notebook — with 
 | Warehouse | Snowflake |
 | Transformation | dbt |
 | Orchestration | Dagster |
-| Extraction | Airbyte (REST APIs + CSV) |
+| Extraction | Python (REST APIs + CSV) |
 | BI / app layer | Streamlit |
 | CI/CD | GitHub Actions, sqlfluff |
 
@@ -51,7 +51,6 @@ The project is built as a production-grade pipeline — not a notebook — with 
 ## Architecture
 
 ```
-```
    ┌─────────────┐    ┌──────────┐    ┌─────────┐    ┌──────────┐    ┌───────────┐    ┌─────────────┐    ┌───────────┐
    │ SBA / FRED  │───▶│ Airbyte  │───▶│   S3    │───▶│ Snowpipe │───▶│ Snowflake │───▶│     dbt     │───▶│ Streamlit │
    │ BLS / Census│    │connectors│    │ (raw,   │    │  (auto-  │    │   (RAW)   │    │ (STG → MART)│    │   app     │
@@ -62,8 +61,7 @@ The project is built as a production-grade pipeline — not a notebook — with 
                                                                      │ Dagster  │─────────────┘
                                                                      │          │  orchestration,
                                                                      └──────────┘  partitions, sensors
-                                                                     
-                                                               ```
+```
 
 ---
 
@@ -71,7 +69,7 @@ The project is built as a production-grade pipeline — not a notebook — with 
 
 ```
 .
-├── ingestion/         # Airbyte for SBA, FRED, BLS, Census
+├── ingestion/         # Python extractors for SBA, FRED, BLS, Census
 ├── dagster_project/   # Assets, schedules, sensors, partitions
 ├── dbt_project/       # Staging, intermediate, mart models + tests
 ├── app/               # Streamlit "Market Pulse" app
