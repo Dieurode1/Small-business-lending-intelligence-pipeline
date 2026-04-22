@@ -51,9 +51,10 @@ The project is built as a production-grade pipeline — not a notebook — with 
 ## Architecture
 
 ```
+```
    ┌─────────────┐    ┌──────────┐    ┌─────────┐    ┌──────────┐    ┌───────────┐    ┌─────────────┐    ┌───────────┐
-   │ SBA / FRED  │───▶│  Airbyte  │───▶│   S3    │───▶│ Snowpipe │───▶│ Snowflake │───▶│     dbt     │───▶│ Streamlit │
-   │ BLS / Census│    ││    │ (raw,   │    │  (auto-  │    │   (RAW)   │    │ (STG → MART)│    │   app     │
+   │ SBA / FRED  │───▶│ Airbyte  │───▶│   S3    │───▶│ Snowpipe │───▶│ Snowflake │───▶│     dbt     │───▶│ Streamlit │
+   │ BLS / Census│    │connectors│    │ (raw,   │    │  (auto-  │    │   (RAW)   │    │ (STG → MART)│    │   app     │
    └─────────────┘    └──────────┘    │partition)│    │ ingest)  │    └───────────┘    └─────────────┘    └───────────┘
                                       └─────────┘    └──────────┘          ▲                  ▲
                                                                            │                  │
@@ -69,7 +70,7 @@ The project is built as a production-grade pipeline — not a notebook — with 
 
 ```
 .
-├── ingestion/         # Python extractors for SBA, FRED, BLS, Census
+├── ingestion/         # Airbyte for SBA, FRED, BLS, Census
 ├── dagster_project/   # Assets, schedules, sensors, partitions
 ├── dbt_project/       # Staging, intermediate, mart models + tests
 ├── app/               # Streamlit "Market Pulse" app
