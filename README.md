@@ -62,7 +62,8 @@ The project is built as a production-grade pipeline — not a notebook — with 
                                                                      │ Dagster  │─────────────┘
                                                                      │          │  orchestration,
                                                                      └──────────┘  partitions, sensors
-```
+                                                                     
+                                                               ```
 
 ---
 
