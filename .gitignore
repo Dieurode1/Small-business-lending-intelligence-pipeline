@@ -1,0 +1,18 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# credentials 
+.env 
+
+# Notes
+manual_ingestion_notes.md
+
+progress_log.md 

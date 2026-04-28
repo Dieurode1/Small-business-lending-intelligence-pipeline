@@ -1,0 +1,11 @@
+[project]
+name = "new-app"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "dbt-core==1.11.8",
+    "dbt-snowflake==1.11.4",
+    "python-dotenv>=1.2.2",
+]
