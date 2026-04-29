@@ -9,7 +9,7 @@ import os
 import json
 import sys
 import boto3
-from datetime import datetime, date
+from datetime import datetime, date, UTC
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -57,7 +57,7 @@ def check_series(s3, series_id, max_age_days, run_date):
 
 def main():
     s3 = boto3.client("s3")
-    run_date = datetime.utcnow().date()
+    run_date = datetime.now(UTC).date()
     print(f"FRED DQ check — {run_date}\n" + "=" * 40)
 
     failures = 0

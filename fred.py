@@ -6,7 +6,7 @@ import os
 import json
 import requests
 import boto3
-from datetime import datetime
+from datetime import datetime, UTC
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -41,7 +41,7 @@ def fetch_series(series_id):
 
 def upload_to_s3(series_id, payload):
     s3 = boto3.client("s3")
-    date_str = datetime.utcnow().strftime("%Y%m%d")
+    date_str = datetime.now(UTC).strftime("%Y%m%d")
     key = f"{S3_PREFIX}/series_{series_id.lower()}_{date_str}.json"
     s3.put_object(
         Bucket=S3_BUCKET,
