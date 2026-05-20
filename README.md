@@ -50,19 +50,16 @@ The project is built as a production-grade pipeline — not a notebook — with 
 
 ## Architecture
 
-```
-   ┌─────────────┐    ┌──────────┐    ┌─────────┐    ┌──────────┐    ┌───────────┐    ┌─────────────┐    ┌───────────┐
-   │ SBA / FRED  │───▶│  Python  │───▶│   S3    │───▶│ Snowpipe │───▶│ Snowflake │───▶│     dbt     │───▶│ Streamlit │
-   │ BLS / Census│    │extractors│    │ (raw,   │    │  (auto-  │    │   (RAW)   │    │ (STG → MART)│    │   app     │
-   └─────────────┘    └──────────┘    │partition)│    │ ingest)  │    └───────────┘    └─────────────┘    └───────────┘
-                                      └─────────┘    └──────────┘          ▲                  ▲
-                                                                           │                  │
-                                                                     ┌──────────┐             │
-                                                                     │ Dagster  │─────────────┘
-                                                                     │          │  orchestration,
-                                                                     └──────────┘  partitions, sensors
-```
-
+┌─────────────┐    ┌──────────┐    ┌─────────┐    ┌──────────┐    ┌───────────┐    ┌─────────────┐    ┌───────────┐
+│ SBA / FRED  │───▶│  Python  │───▶│   S3    │───▶│  Batch   │───▶│ Snowflake │───▶│     dbt     │───▶│ Streamlit │
+│ BLS / Census│    │extractors│    │ (raw,   │    │ Ingest / │    │   (RAW)   │    │ (STG → MART)│    │   app     │
+└─────────────┘    └──────────┘    │partition)│    │COPY INTO │    └───────────┘    └─────────────┘    └───────────┘
+                                   └─────────┘    └──────────┘          ▲                  ▲
+                                                                        │                  │
+                                                                  ┌──────────┐             │
+                                                                  │ Dagster  │─────────────┘
+                                                                  │          │  orchestration,
+                                                                  └──────────┘  partitions, sensors
 ---
 
 ## Project Structure
