@@ -50,16 +50,18 @@ The project is built as a production-grade pipeline — not a notebook — with 
 
 ## Architecture
 
-┌─────────────┐    ┌──────────┐    ┌─────────┐    ┌──────────┐    ┌───────────┐    ┌─────────────┐    ┌───────────┐
-│ SBA / FRED  │───▶│  Python  │───▶│   S3    │───▶│  Batch   │───▶│ Snowflake │───▶│     dbt     │───▶│ Streamlit │
-│ BLS / Census│    │extractors│    │ (raw,   │    │ Ingest / │    │   (RAW)   │    │ (STG → MART)│    │   app     │
-└─────────────┘    └──────────┘    │partition)│    │COPY INTO │    └───────────┘    └─────────────┘    └───────────┘
-                                   └─────────┘    └──────────┘          ▲                  ▲
-                                                                        │                  │
-                                                                  ┌──────────┐             │
-                                                                  │ Dagster  │─────────────┘
-                                                                  │          │  orchestration,
-                                                                  └──────────┘  partitions, sensors
+```mermaid
+flowchart LR
+    A["SBA / FRED<br/>BLS / Census"] --> B["Python<br/>extractors"]
+    B --> C["S3<br/>(raw, partitioned)"]
+    C --> D["Batch Ingest<br/>COPY INTO"]
+    D --> E["Snowflake<br/>(RAW)"]
+    E --> F["dbt<br/>(STG → MART)"]
+    F --> G["Streamlit<br/>app"]
+    H["Dagster<br/>orchestration,<br/>partitions, sensors"] --> D
+    H --> F
+```
+
 ---
 
 ## Project Structure
