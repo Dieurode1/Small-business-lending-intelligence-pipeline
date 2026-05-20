@@ -26,7 +26,7 @@ The project is built as a production-grade pipeline — not a notebook — with 
 | Layer | Tool |
 |---|---|
 | Cloud storage | AWS S3 |
-| Ingestion (S3 → Snowflake) | Batch Ingest |
+| Ingestion (S3 → Snowflake) | Batch Ingest/Copy Into |
 | Warehouse | Snowflake |
 | Transformation | dbt |
 | Orchestration | Dagster |
