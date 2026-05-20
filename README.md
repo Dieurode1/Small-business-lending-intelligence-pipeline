@@ -69,7 +69,7 @@ flowchart LR
 ```
 .
 ├── ingestion/         # Python extractors for SBA, FRED, BLS, Census
-├── dagster_project/   # Assets, schedules, sensors, partitions
+├── dagster_project/   # Assets, schedules, partitions
 ├── dbt_project/       # Staging, intermediate, mart models + tests
 ├── app/               # Streamlit "Market Pulse" app
 ├── .github/workflows/ # CI: lint, test, dbt build on PR
