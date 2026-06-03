@@ -15,4 +15,8 @@ wheels/
 # Notes
 manual_ingestion_notes.md
 
+# dbt
 progress_log.md 
+logs
+target
+dbt_packages 

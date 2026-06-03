@@ -132,7 +132,6 @@ FROM (
 PATTERN = '.*foia_7a_.*\.csv'
 ON_ERROR = CONTINUE;
 
-
 -- ============================================================================
 -- VALIDATION  (read-only — confirms the load is correct)
 -- ============================================================================
@@ -164,6 +163,11 @@ LIMIT 10;
 -- Quarantine spot-check — these patterns are why ON_ERROR = CONTINUE:
 -- malformed state values that would violate VARCHAR(2). Expect a small,
 -- explainable count, not a systemic failure.
+
 SELECT COUNT(*) AS rows_with_long_state
 FROM SBA_7A_LOANS
 WHERE LENGTH(borrstate) > 2 OR LENGTH(bankstate) > 2;
+
+
+SELECT COUNT(*) AS total_rows
+FROM SBLI.RAW.SBA_7A_LOANS;

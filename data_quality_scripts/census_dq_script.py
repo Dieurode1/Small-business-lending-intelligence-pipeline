@@ -1,6 +1,9 @@
 """
 Lightweight DQ check for Census BFS CSVs in S3.
-Confirms today's pull landed and the basic shape is sane.
+Confirms the canonical pull landed and the basic shape is sane.
+
+Filenames are canonical (no date suffix); each rerun overwrites the
+previous file.
 
 Run after census.py:
     python census_dq_script.py
@@ -27,14 +30,14 @@ FILES = {
     "bfs_date_table":              {"min_rows": 100,  "label": "date lookup"},
 }
 
-def check_file(s3, filename_stem, min_rows, run_date):
+def check_file(s3, filename_stem, min_rows):
     """Return (passed: bool, message: str)."""
-    key = f"{S3_PREFIX}/{filename_stem}_{run_date:%Y%m%d}.csv"
+    key = f"{S3_PREFIX}/{filename_stem}.csv"
     try:
         obj = s3.get_object(Bucket=S3_BUCKET, Key=key)
         body = obj["Body"].read().decode("utf-8", errors="replace")
     except s3.exceptions.NoSuchKey:
-        return False, "file missing for today's run"
+        return False, "file missing"
 
     if len(body) < 100:
         return False, f"file too small ({len(body)} bytes)"
@@ -65,7 +68,7 @@ def main():
 
     failures = 0
     for filename_stem, cfg in FILES.items():
-        passed, msg = check_file(s3, filename_stem, cfg["min_rows"], run_date)
+        passed, msg = check_file(s3, filename_stem, cfg["min_rows"])
         status = "PASS" if passed else "FAIL"
         label = cfg["label"]
         print(f"{filename_stem:<32} [{status}] {label}: {msg}")

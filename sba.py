@@ -14,13 +14,17 @@ Six CSV files plus the data dictionary:
   - 504  FY2010-Present (uses "asof")
   - Data dictionary     (XLSX)
 
+S3 keys use canonical (un-dated) filenames so each rerun overwrites the
+previous file rather than accumulating snapshots. The SBA `asof` vintage
+lives inside the data (asofdate column), not the filename. Snapshot history
+belongs in dbt snapshots, not in S3 filenames.
+
 Run manually for now. Will be wrapped as a Dagster asset later.
 """
 import os
 import sys
 import requests
 import boto3
-from datetime import datetime, UTC
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -79,11 +83,10 @@ FILES = [
 ]
 
 def fetch_and_upload(url, filename_stem, s3_prefix):
-    """Download from URL, upload to S3."""
+    """Download from URL, upload to S3 under canonical (un-dated) key."""
     s3 = boto3.client("s3")
-    date_str = datetime.now(UTC).strftime("%Y%m%d")
     ext = "xlsx" if "dictionary" in filename_stem else "csv"
-    key = f"{s3_prefix}/{filename_stem}_asof_{ASOF}_pulled_{date_str}.{ext}"
+    key = f"{s3_prefix}/{filename_stem}.{ext}"
 
     print(f"  downloading from {url[:80]}...")
     r = requests.get(url, timeout=300)

@@ -2,6 +2,9 @@
 Lightweight DQ check for BLS raw JSON in S3.
 Confirms files landed and aren't garbage. Heavy validation lives in dbt.
 
+Filenames are canonical (no date suffix); each rerun overwrites the
+previous file.
+
 Run after bls.py:
     python bls_dq_script.py
 """
@@ -39,12 +42,12 @@ def parse_bls_date(year, period):
 
 def check_series(s3, series_id, max_age_days, run_date):
     """Return (passed: bool, message: str)."""
-    key = f"{S3_PREFIX}/series_{series_id.lower()}_{run_date:%Y%m%d}.json"
+    key = f"{S3_PREFIX}/series_{series_id.lower()}.json"
     try:
         obj = s3.get_object(Bucket=S3_BUCKET, Key=key)
         payload = json.loads(obj["Body"].read())
     except s3.exceptions.NoSuchKey:
-        return False, "file missing for today's run"
+        return False, "file missing"
     except json.JSONDecodeError:
         return False, "file is not valid JSON"
 

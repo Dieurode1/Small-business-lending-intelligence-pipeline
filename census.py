@@ -12,13 +12,17 @@ Pulls four files:
   - State applications (weekly, 50 states + DC)
   - Date lookup table (maps week IDs to actual dates)
 
+S3 keys use canonical (un-dated) filenames so each rerun overwrites the
+previous file rather than accumulating snapshots. Census publishes the
+full historical series in each file, so "latest pull" always contains
+all weeks back to the series start.
+
 Run manually for now. Will be wrapped as a Dagster asset later.
 """
 import os
 import sys
 import requests
 import boto3
-from datetime import datetime, UTC
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -44,8 +48,7 @@ def fetch_csv(url):
 
 def upload_to_s3(filename_stem, content):
     s3 = boto3.client("s3")
-    date_str = datetime.now(UTC).strftime("%Y%m%d")
-    key = f"{S3_PREFIX}/{filename_stem}_{date_str}.csv"
+    key = f"{S3_PREFIX}/{filename_stem}.csv"
     s3.put_object(
         Bucket=S3_BUCKET,
         Key=key,

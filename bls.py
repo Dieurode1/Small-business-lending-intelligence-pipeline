@@ -3,6 +3,11 @@ Pull BLS series, land raw JSON in S3.
 One POST returns all series; split into one file per series for consistency
 with the FRED pattern.
 
+S3 keys use canonical (un-dated) filenames so each rerun overwrites the
+previous file rather than accumulating snapshots. Pull timestamp is preserved
+inside the JSON payload via the extracted_at field (and surfaced in Snowflake
+via raw_response:extracted_at in the staging model).
+
 Run manually for now. Will be wrapped as a Dagster asset later.
 """
 import os
@@ -66,8 +71,7 @@ def fetch_all_series(series_ids):
 
 def upload_to_s3(series_id, payload):
     s3 = boto3.client("s3")
-    date_str = datetime.now(UTC).strftime("%Y%m%d")
-    key = f"{S3_PREFIX}/series_{series_id.lower()}_{date_str}.json"
+    key = f"{S3_PREFIX}/series_{series_id.lower()}.json"
     s3.put_object(
         Bucket=S3_BUCKET,
         Key=key,

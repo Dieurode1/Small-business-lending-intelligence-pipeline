@@ -4,6 +4,10 @@ Uses S3 metadata + streaming reads to avoid downloading hundreds of MB.
 
 Heavy validation (column-level constraints, business logic) lives in dbt.
 
+Filenames are canonical (no date suffix); each extractor rerun overwrites
+the previous file. ASOF tracks SBA's source vintage and lives inside the
+data (asofdate column), not the filename.
+
 Run after sba.py:
     python sba_dq_script.py
 """
@@ -18,7 +22,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 S3_BUCKET = os.getenv("S3_BUCKET")
-ASOF = "251231"
 
 # Shared core columns present in BOTH 7(a) and 504 schemas.
 # These are the analytical bedrock — borrower geography, loan amount, NAICS.
@@ -67,10 +70,9 @@ FILES = {
     },
 }
 
-def find_today_file(s3, prefix_stem, run_date):
-    """Locate the file matching today's pull date. Returns the full S3 key or None."""
-    date_str = run_date.strftime("%Y%m%d")
-    expected_key = f"{prefix_stem}_asof_{ASOF}_pulled_{date_str}.csv"
+def find_file(s3, prefix_stem):
+    """Locate the canonical S3 key for this prefix. Returns the full S3 key or None."""
+    expected_key = f"{prefix_stem}.csv"
     try:
         s3.head_object(Bucket=S3_BUCKET, Key=expected_key)
         return expected_key
@@ -113,12 +115,12 @@ def stream_count_rows_and_check_header(s3, key, expected_cols):
 
     return row_count, header, missing
 
-def check_file(s3, prefix_stem, cfg, run_date):
+def check_file(s3, prefix_stem, cfg):
     results = []
 
-    key = find_today_file(s3, prefix_stem, run_date)
+    key = find_file(s3, prefix_stem)
     if not key:
-        results.append(("file_exists", False, "file missing for today's pull date"))
+        results.append(("file_exists", False, "file missing"))
         return results
     results.append(("file_exists", True, "OK"))
 
@@ -163,7 +165,7 @@ def main():
 
     total_failures = 0
     for prefix_stem, cfg in FILES.items():
-        results = check_file(s3, prefix_stem, cfg, run_date)
+        results = check_file(s3, prefix_stem, cfg)
         passed_ct = sum(1 for _, p, _ in results if p)
         all_passed = passed_ct == len(results)
         status = "PASS" if all_passed else "FAIL"

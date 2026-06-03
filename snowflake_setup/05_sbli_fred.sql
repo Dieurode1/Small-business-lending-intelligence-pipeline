@@ -6,7 +6,12 @@
 -- ============================================================================
 --
 -- Source: FRED API JSON responses, one file per series:
---   fred-data-raw/series_<id>_<YYYYMMDD>.json   (8 series, ~20.6K obs total)
+--   fred-data-raw/series_<id>.json   (8 series, ~20.6K obs total)
+--
+-- Filenames are canonical (no date suffix); each extractor rerun overwrites
+-- the previous file. pulled_date is derived from S3's per-file last-modified
+-- timestamp (METADATA$FILE_LAST_MODIFIED), since FRED's response doesn't
+-- carry a pull timestamp natively the way BLS's pre-unwrapped envelope does.
 --
 -- JSON PATTERN (differs fundamentally from the CSV sources):
 --   - Table has ONE VARIANT column holding the entire API response.
@@ -15,10 +20,9 @@
 --     NOT raw's. Raw preserves the full FRED envelope (metadata + the
 --     observations array) so nothing is lost.
 --
--- series_id and pulled_date are derived from the FILENAME, not the JSON:
---   - FRED's response doesn't echo series_id in a convenient top-level field.
---   - "pulled date" isn't in the response at all — it's our ingestion
---     metadata, and the filename is its authoritative source.
+-- series_id is derived from the filename. The 3-level SPLIT_PART handles
+-- canonical filenames cleanly: strip path, strip 'series_' prefix, strip
+-- '.json' suffix.
 --
 -- Series ingested (FRED code -> what it measures):
 --   BUSLOANS        Commercial & industrial loans, all banks
@@ -46,22 +50,24 @@ USE SCHEMA RAW;
 
 CREATE OR REPLACE TABLE FRED_SERIES_RAW (
     series_id      VARCHAR(50),      -- derived from filename, e.g. 'UNRATE'
-    pulled_date    DATE,             -- derived from filename (snapshot date)
+    pulled_date    DATE,             -- derived from S3 file last-modified timestamp
     raw_response   VARIANT,          -- entire FRED API response
     _loaded_at     TIMESTAMP_LTZ DEFAULT CURRENT_TIMESTAMP(),
     _source_file   VARCHAR(500)
 )
-COMMENT = 'Raw FRED API responses. One row per (series, pull_date). VARIANT preserves full response for downstream flattening in dbt staging.';
+COMMENT = 'Raw FRED API responses. One row per series. VARIANT preserves full response for downstream flattening in dbt staging.';
 
 COPY INTO FRED_SERIES_RAW (series_id, pulled_date, raw_response, _source_file)
 FROM (
     SELECT
-        -- 'fred-data-raw/series_unrate_20260428.json' -> 'UNRATE'
-        UPPER(SPLIT_PART(SPLIT_PART(METADATA$FILENAME, '/', -1), '_', 2)),
+        -- 'fred-data-raw/series_unrate.json' -> 'UNRATE'
+        -- (strip path, strip 'series_' prefix, strip '.json' suffix)
+        UPPER(SPLIT_PART(SPLIT_PART(SPLIT_PART(METADATA$FILENAME, '/', -1), '_', 2), '.', 1)),
 
-        -- '...series_unrate_20260428.json' -> 2026-04-28
-        TO_DATE(SPLIT_PART(SPLIT_PART(METADATA$FILENAME, '_', -1), '.', 1),
-                'YYYYMMDD'),
+        -- pulled_date from S3's last-modified timestamp.
+        -- FRED's response doesn't carry a pull timestamp the way BLS does,
+        -- so we use Snowflake's per-file metadata instead.
+        METADATA$FILE_LAST_MODIFIED::DATE,
 
         -- entire JSON document
         $1,
@@ -113,3 +119,7 @@ FROM FRED_SERIES_RAW f,
 WHERE f.series_id = 'UNRATE'
 ORDER BY observation_date DESC
 LIMIT 10;
+
+SELECT series_id, pulled_date, ARRAY_SIZE(raw_response:observations) AS obs_count
+FROM FRED_SERIES_RAW
+ORDER BY series_id;

@@ -11,16 +11,23 @@
 -- Expected state after a clean full load (the numbers we verified during
 -- ingestion — treat these as the regression baseline):
 --
---   SBA_7A_LOANS                  ~1,930,936   (≈99.998% of parsed)
---   SBA_504_LOANS                 ~227,398     (≈99.997% of parsed)
---   CENSUS_BFS_STATE_APPS_WEEKLY  ~53,805      (100%)
---   CENSUS_BFS_REGION_APPS_WEEKLY ~4,220       (100%)
---   CENSUS_BFS_US_APPS_WEEKLY     ~1,055       (100%)
---   CENSUS_BFS_DATE_TABLE         ~1,095       (100%)
+--   SBA_7A_LOANS                  ~1,947,093   (≈99.998% of parsed; grows
+--                                                as SBA approves new loans)
+--   SBA_504_LOANS                 ~227,403     (≈99.997% of parsed; grows
+--                                                as SBA approves new loans)
+--   CENSUS_BFS_STATE_APPS_WEEKLY  ~54,060      (100%; grows weekly)
+--   CENSUS_BFS_REGION_APPS_WEEKLY ~4,240       (100%; grows weekly)
+--   CENSUS_BFS_US_APPS_WEEKLY     ~1,060       (100%; grows weekly)
+--   CENSUS_BFS_DATE_TABLE         ~1,095       (100%; static)
 --   FRED_SERIES_RAW               8 series
 --   BLS_SERIES_RAW                6 series
 --   ------------------------------------------------------------
---   Total CSV rows ≈ 2,218,509 ;  JSON: 14 series docs
+--   Total CSV rows ≈ 2,233,851 ; JSON: 14 series docs
+--
+-- Architecture note: filenames in S3 are canonical (no date suffix) and
+-- each extractor rerun overwrites the previous file. Snowflake RAW holds
+-- a single snapshot per source. Pull history is not preserved at the raw
+-- layer; if needed later, dbt snapshots are the path.
 --
 -- Small quarantine on the two SBA tables is EXPECTED and bounded
 -- (malformed state values rejected via ON_ERROR = CONTINUE). It is a
@@ -56,7 +63,7 @@ ORDER BY table_name;
 
 -- ----------------------------------------------------------------------------
 -- 2. Object inventory — confirms the supporting objects from 01 are present
---    (1 integration, 3 file formats, 5 stages, 9 tables in RAW)
+--    (1 integration, 2 file formats, 5 stages, 8 tables in RAW)
 -- ----------------------------------------------------------------------------
 SHOW INTEGRATIONS LIKE 'SBLI_S3_INTEGRATION';
 SHOW FILE FORMATS IN SCHEMA SBLI.RAW;
@@ -134,6 +141,9 @@ ORDER BY series_id;
 -- ----------------------------------------------------------------------------
 -- 6. One-line GO / NO-GO summary
 --    All booleans should be TRUE on a healthy raw layer.
+--    FRED/BLS assertions use COUNT(DISTINCT series_id) so they stay correct
+--    regardless of pull-history strategy (currently single-snapshot, but
+--    a future SCD-style approach would push raw counts above 8/6).
 -- ----------------------------------------------------------------------------
 SELECT
     (SELECT COUNT(*) FROM SBA_7A_LOANS)  > 1900000  AS sba_7a_ok,
@@ -142,5 +152,5 @@ SELECT
     (SELECT COUNT(*) FROM CENSUS_BFS_REGION_APPS_WEEKLY) > 4000  AS census_region_ok,
     (SELECT COUNT(*) FROM CENSUS_BFS_US_APPS_WEEKLY)     > 1000  AS census_us_ok,
     (SELECT COUNT(*) FROM CENSUS_BFS_DATE_TABLE)         > 1000  AS census_date_ok,
-    (SELECT COUNT(*) FROM FRED_SERIES_RAW) = 8  AS fred_ok,
-    (SELECT COUNT(*) FROM BLS_SERIES_RAW)  = 6  AS bls_ok;
+    (SELECT COUNT(DISTINCT series_id) FROM FRED_SERIES_RAW) = 8  AS fred_ok,
+    (SELECT COUNT(DISTINCT series_id) FROM BLS_SERIES_RAW)  = 6  AS bls_ok;

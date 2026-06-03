@@ -1,12 +1,17 @@
 """
 Pull FRED series, land raw JSON in S3.
+
+S3 keys use canonical (un-dated) filenames so each rerun overwrites the
+previous file rather than accumulating snapshots. FRED's response envelope
+is stored intact, so observations live at raw_response:observations
+(contrast with BLS, which is pre-unwrapped to raw_response:data).
+
 Run manually for now. Will be wrapped as a Dagster asset later.
 """
 import os
 import json
 import requests
 import boto3
-from datetime import datetime, UTC
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -41,8 +46,7 @@ def fetch_series(series_id):
 
 def upload_to_s3(series_id, payload):
     s3 = boto3.client("s3")
-    date_str = datetime.now(UTC).strftime("%Y%m%d")
-    key = f"{S3_PREFIX}/series_{series_id.lower()}_{date_str}.json"
+    key = f"{S3_PREFIX}/series_{series_id.lower()}.json"
     s3.put_object(
         Bucket=S3_BUCKET,
         Key=key,

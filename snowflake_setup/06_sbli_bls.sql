@@ -6,11 +6,17 @@
 -- ============================================================================
 --
 -- Source: BLS API responses, one file per series:
---   bls-data-raw/series_<id>_<YYYYMMDD>.json   (6 series, ~1.4K obs total)
+--   bls-data-raw/series_<id>.json   (6 series, ~1.4K obs total)
+--
+-- Filenames are canonical (no date suffix); each extractor rerun overwrites
+-- the previous file. Pull timestamp lives inside the JSON payload via the
+-- extracted_at field, and is the source for the pulled_date column below.
 --
 -- Same JSON/VARIANT pattern as 05_sbli_fred: one VARIANT column holds the
 -- whole document; $1 = entire document; flattening happens in dbt staging.
--- series_id / pulled_date are derived from the FILENAME (same logic as FRED).
+-- series_id is derived from the FILENAME; pulled_date is derived from
+-- the JSON's extracted_at field (more accurate than file mtime — it's the
+-- exact moment the extractor hit the BLS API).
 --
 -- ⚠ IMPORTANT ENVELOPE DIFFERENCE FROM FRED (verified via OBJECT_KEYS):
 --   FRED stores the FULL API envelope -> raw_response:observations
@@ -46,22 +52,24 @@ USE SCHEMA RAW;
 
 CREATE OR REPLACE TABLE BLS_SERIES_RAW (
     series_id      VARCHAR(50),      -- derived from filename, e.g. 'CES0000000001'
-    pulled_date    DATE,             -- derived from filename (snapshot date)
+    pulled_date    DATE,             -- derived from JSON's extracted_at timestamp
     raw_response   VARIANT,          -- pre-unwrapped BLS doc: {data, extracted_at, series_id}
     _loaded_at     TIMESTAMP_LTZ DEFAULT CURRENT_TIMESTAMP(),
     _source_file   VARCHAR(500)
 )
-COMMENT = 'Raw BLS API responses (envelope pre-unwrapped by bls.py). One row per (series, pull_date). Observations at raw_response:data.';
+COMMENT = 'Raw BLS API responses (envelope pre-unwrapped by bls.py). One row per series. Observations at raw_response:data.';
 
 COPY INTO BLS_SERIES_RAW (series_id, pulled_date, raw_response, _source_file)
 FROM (
     SELECT
-        -- 'bls-data-raw/series_ces0000000001_20260428.json' -> 'CES0000000001'
-        UPPER(SPLIT_PART(SPLIT_PART(METADATA$FILENAME, '/', -1), '_', 2)),
+        -- 'bls-data-raw/series_ces0000000001.json' -> 'CES0000000001'
+        -- (strip path, strip 'series_' prefix, strip '.json' suffix)
+        UPPER(SPLIT_PART(SPLIT_PART(SPLIT_PART(METADATA$FILENAME, '/', -1), '_', 2), '.', 1)),
 
-        -- '...series_ces0000000001_20260428.json' -> 2026-04-28
-        TO_DATE(SPLIT_PART(SPLIT_PART(METADATA$FILENAME, '_', -1), '.', 1),
-                'YYYYMMDD'),
+        -- pulled_date from the JSON's own extracted_at timestamp.
+        -- More accurate than METADATA$FILE_LAST_MODIFIED — this is the
+        -- exact moment the extractor hit the BLS API, before any S3 lag.
+        $1:extracted_at::TIMESTAMP_NTZ::DATE,
 
         -- entire JSON document
         $1,
@@ -71,7 +79,6 @@ FROM (
 )
 PATTERN = '.*series_.*\.json'
 ON_ERROR = CONTINUE;
-
 
 -- ============================================================================
 -- VALIDATION  (read-only — confirms the load is correct)
@@ -125,3 +132,7 @@ WHERE b.series_id = 'LNS14000000'
 ORDER BY observation_year DESC,
          observation_period DESC
 LIMIT 12;
+
+SELECT series_id, pulled_date, ARRAY_SIZE(raw_response:data) AS obs_count
+FROM BLS_SERIES_RAW
+ORDER BY series_id;
