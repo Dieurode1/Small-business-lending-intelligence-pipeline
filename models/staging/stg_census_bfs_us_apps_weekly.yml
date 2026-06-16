@@ -1,0 +1,35 @@
+version: 2
+
+models:
+  - name: stg_census_bfs_us_apps_weekly
+    description: >
+      Census BFS weekly business applications, national total. All metrics
+      are NSA (Not Seasonally Adjusted) — Census doesn't publish SA at this
+      granularity. YoY pct columns are NULL where the prior-year value was
+      zero (was "inf" in the pandas extract; converted to NULL upstream).
+    columns:
+      - name: observation_year
+        description: Calendar year.
+        tests:
+          - not_null
+      - name: observation_week
+        description: ISO-style week number within the year (1-53).
+        tests:
+          - not_null
+      - name: business_applications
+        description: Total business applications (BA_NSA in source).
+        tests:
+          - not_null
+      - name: high_propensity_applications
+        description: High-propensity business applications (HBA_NSA in source).
+      - name: wages_applications
+        description: Applications with planned wages (WBA_NSA in source).
+      - name: corporate_applications
+        description: Corporate business applications (CBA_NSA in source).
+      - name: source_file
+        description: S3 path of the source CSV.
+        tests:
+          - not_null
+    tests:
+      - unique:
+          column_name: "(observation_year || '|' || observation_week)"

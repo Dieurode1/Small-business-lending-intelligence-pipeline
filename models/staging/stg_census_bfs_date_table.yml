@@ -1,0 +1,32 @@
+version: 2
+
+models:
+  - name: stg_census_bfs_date_table
+    description: >
+      Census BFS week-to-date lookup. Joins to the three apps_weekly fact
+      tables on (observation_year, observation_week) to attach human-readable
+      start and end dates.
+    columns:
+      - name: observation_year
+        description: Calendar year.
+        tests:
+          - not_null
+      - name: observation_week
+        description: ISO-style week number within the year (1-53).
+        tests:
+          - not_null
+      - name: week_start_date
+        description: First day of the week.
+        tests:
+          - not_null
+      - name: week_end_date
+        description: Last day of the week.
+        tests:
+          - not_null
+      - name: source_file
+        description: S3 path of the source CSV.
+        tests:
+          - not_null
+    tests:
+      - unique:
+          column_name: "(observation_year || '|' || observation_week)"

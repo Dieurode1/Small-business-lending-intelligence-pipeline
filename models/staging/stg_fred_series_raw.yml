@@ -1,0 +1,63 @@
+version: 2
+
+models:
+  - name: stg_fred_series_raw
+    description: >
+      Flattened FRED observations, one row per (series_id, observation_date).
+      Source VARIANT is unpacked via LATERAL FLATTEN on
+      raw_response:observations (FRED preserves the full API envelope —
+      contrast with BLS which is pre-unwrapped).
+
+      Handles FRED-specific source quirks: the "." sentinel for missing
+      data is NULL-ed before numeric casting. Date is already an ISO
+      string in the source, so no period-code construction needed.
+
+    columns:
+      - name: series_id
+        description: >
+          FRED series identifier (e.g. UNRATE, FEDFUNDS). Eight series
+          ingested; see 05_sbli_fred.sql for the full list.
+        tests:
+          - not_null
+          - accepted_values:
+              values:
+                - 'BUSLOANS'
+                - 'CPIAUCSL'
+                - 'DGS10'
+                - 'DRTSCILM'
+                - 'FEDFUNDS'
+                - 'GDP'
+                - 'RECPROUSM156N'
+                - 'UNRATE'
+
+      - name: observation_date
+        description: >
+          Date of the observation. Cadence varies by series — daily
+          (DGS10), monthly (UNRATE, CPIAUCSL, etc.), or quarterly
+          (GDP, DRTSCILM).
+        tests:
+          - not_null
+
+      - name: observation_year
+        description: Calendar year of the observation, derived from observation_date.
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: "between 1940 and year(current_date()) + 1"
+              config:
+                severity: warn
+
+      - name: observation_value
+        description: >
+          Numeric observation value. NULL when FRED reports the source
+          sentinel "." (data unavailable at that date). Downstream models
+          should treat NULL as "missing", not "zero".
+
+      - name: pulled_date
+        description: Date the file was last written to S3 (from METADATA$FILE_LAST_MODIFIED).
+        tests:
+          - not_null
+
+    tests:
+      - unique:
+          column_name: "(series_id || '|' || observation_date)"

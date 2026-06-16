@@ -1,0 +1,86 @@
+version: 2
+
+models:
+  - name: stg_sba_504_loans
+    description: >
+      SBA 504 loan-level data, lightly cleaned from RAW. One row per source
+      row (1:1 grain). CDC + third-party-lender structure — contrast with
+      7(a) which uses a single bank lender.
+
+      Same surrogate-key approach as stg_sba_7a_loans: locationid is a
+      non-unique SBA reference. sba_504_loan_row_id is a deterministic
+      surrogate generated via ROW_NUMBER() — use it for downstream joins
+      and uniqueness assertions.
+
+    columns:
+      - name: sba_504_loan_row_id
+        description: Deterministic surrogate key. Guaranteed unique per row.
+        tests:
+          - not_null
+          - unique
+
+      - name: loan_id
+        description: SBA's locationid reference — NOT a unique loan identifier.
+
+      - name: loan_program
+        description: Should always be "504" in this model.
+        tests:
+          - not_null
+
+      - name: borrower_name
+        description: Source column borrname. Borrower business name.
+        tests:
+          - not_null
+
+      - name: cdc_name
+        description: >
+          Source column cdc_name. Certified Development Company that
+          originated the SBA-backed portion of the loan.
+        tests:
+          - not_null
+
+      - name: third_party_lender_name
+        description: >
+          Source column thirdpartylender_name. Bank or other lender that
+          funded the first-mortgage piece alongside the CDC.
+
+      - name: third_party_dollars
+        description: Source column thirdpartydollars. Third-party lender contribution.
+
+      - name: gross_approval_amount
+        description: Source column grossapproval. Total SBA-approved amount in USD.
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+              config:
+                severity: warn
+
+      - name: approval_date
+        description: Source column approvaldate. Date SBA approved the loan.
+        tests:
+          - not_null
+
+      - name: approval_fiscal_year
+        description: >
+          Source column approvalfy. SBA fiscal year of approval.
+          Range is FY1991 through current.
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: "between 1991 and year(current_date()) + 1"
+              config:
+                severity: warn
+
+      - name: naics_code
+        description: Source column naicscode. NAICS industry classification.
+
+      - name: loan_status
+        description: >
+          Source column loanstatus. Loan lifecycle status (e.g. PAID IN FULL,
+          CHARGED OFF, CANCELED).
+
+      - name: source_file
+        description: S3 path of the source CSV.
+        tests:
+          - not_null

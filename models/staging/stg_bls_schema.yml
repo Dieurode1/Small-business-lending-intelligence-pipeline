@@ -1,0 +1,83 @@
+version: 2
+
+models:
+  - name: stg_bls_series_raw
+    description: >
+      Flattened BLS observations, one row per (series_id, observation_year,
+      observation_period). Source VARIANT is unpacked via LATERAL FLATTEN on
+      raw_response:data. Monthly grain only — annual averages (period M13)
+      are filtered out at this layer.
+
+      Handles BLS-specific source quirks: the '-' sentinel for missing data
+      is NULL-ed before numeric casting, and the preliminary flag from
+      footnotes[0].code is surfaced as a boolean column for downstream
+      models that need to distinguish preliminary from final values.
+
+    columns:
+      - name: series_id
+        description: >
+          BLS series identifier (e.g. LNS14000000 for unemployment rate).
+          Six series ingested; see 06_sbli_bls.sql for the full list.
+        tests:
+          - not_null
+          - accepted_values:
+              values:
+                - 'CES0000000001'
+                - 'CES0500000003'
+                - 'CUUR0000SA0'
+                - 'JTS000000000000000JOL'
+                - 'LNS11300000'
+                - 'LNS14000000'
+
+      - name: observation_year
+        description: Calendar year of the observation.
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: "between 2006 and year(current_date()) + 1"
+              config:
+                severity: warn
+
+      - name: observation_period
+        description: >
+          BLS period code. Monthly observations use M01-M12. M13 (annual
+          average) is filtered out at staging.
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['M01','M02','M03','M04','M05','M06','M07','M08','M09','M10','M11','M12']
+
+      - name: period_name
+        description: Human-readable month name (January, February, etc.).
+
+      - name: observation_date
+        description: >
+          First-of-month date built from observation_year + observation_period.
+          Use this for time-series joins and date-range filters; it's the
+          canonical date representation downstream.
+        tests:
+          - not_null
+
+      - name: observation_value
+        description: >
+          Numeric observation value. NULL when BLS reports the source
+          sentinel '-' (e.g. data unavailable due to the 2025 lapse in
+          appropriations on LNS14000000 and CUUR0000SA0). Downstream models
+          should treat NULL as "missing", not "zero".
+
+      - name: is_preliminary
+        description: >
+          TRUE when the source row carries footnote code 'P' (preliminary,
+          subject to revision in the next release). Typically true for the
+          latest 1-2 months per series; goes FALSE as data ages and finalizes.
+        tests:
+          - not_null
+
+      - name: pulled_date
+        description: Date the extractor hit the BLS API (carried through from RAW).
+        tests:
+          - not_null
+
+    tests:
+      - unique:
+          column_name: "(series_id || '|' || observation_year || '|' || observation_period)"

@@ -1,0 +1,32 @@
+version: 2
+
+models:
+  - name: stg_census_bfs_state_apps_weekly
+    description: >
+      Census BFS weekly business applications by state (50 states + DC,
+      ~51 distinct). All metrics NSA. Joins to the date table on
+      (observation_year, observation_week).
+    columns:
+      - name: observation_year
+        description: Calendar year.
+        tests:
+          - not_null
+      - name: observation_week
+        description: ISO-style week number within the year (1-53).
+        tests:
+          - not_null
+      - name: state_code
+        description: 2-character US state code.
+        tests:
+          - not_null
+      - name: business_applications
+        description: Total business applications (BA_NSA in source).
+        tests:
+          - not_null
+      - name: source_file
+        description: S3 path of the source CSV.
+        tests:
+          - not_null
+    tests:
+      - unique:
+          column_name: "(observation_year || '|' || observation_week || '|' || state_code)"

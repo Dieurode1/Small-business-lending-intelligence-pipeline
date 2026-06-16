@@ -1,0 +1,94 @@
+version: 2
+
+sources:
+  - name: raw
+    description: >
+      Raw layer — exact mirror of source-system data with no transformations.
+      Each table is loaded by a Python extractor → S3 → Snowflake COPY INTO.
+      Filenames in S3 are canonical (no date suffix); each rerun overwrites
+      in place, so RAW holds a single current snapshot per source.
+    database: SBLI
+    schema: RAW
+
+    tables:
+      # ----------------------------------------------------------------------
+      # SBA FOIA — loan-level data
+      # ----------------------------------------------------------------------
+      - name: sba_7a_loans
+        description: >
+          SBA 7(a) program loan-level data from FOIA. Bank-based lender
+          structure (bankname, bankfdicnumber, bankstate). One row per loan.
+        columns:
+          - name: l2locid
+            description: SBA's loan identifier within the 7(a) program.
+          - name: borrname
+            description: Borrower business name.
+          - name: grossapproval
+            description: Total approved loan amount in USD.
+          - name: approvaldate
+            description: Date SBA approved the loan.
+          - name: approvalfiscalyear
+            description: SBA fiscal year (Oct–Sep) of approval.
+
+      - name: sba_504_loans
+        description: >
+          SBA 504 program loan-level data from FOIA. CDC + third-party-lender
+          structure (cdc_name, thirdpartylender_name) — distinct schema from 7(a).
+          One row per loan.
+        columns:
+          - name: locationid
+            description: SBA's loan identifier within the 504 program.
+
+      # ----------------------------------------------------------------------
+      # Census BFS — Business Formation Statistics
+      # ----------------------------------------------------------------------
+      - name: census_bfs_state_apps_weekly
+        description: >
+          Weekly business applications by state (50 states + DC).
+          Grain: (state, week). NSA only — seasonally adjusted state series
+          isn't published by Census.
+
+      - name: census_bfs_region_apps_weekly
+        description: Weekly business applications by Census region (4 regions). Grain (region, week).
+
+      - name: census_bfs_us_apps_weekly
+        description: Weekly business applications, national total. Grain (week).
+
+      - name: census_bfs_date_table
+        description: >
+          Week-id → calendar-date lookup. Joined to the apps_weekly tables
+          in intermediate models to attach human-readable dates.
+
+      # ----------------------------------------------------------------------
+      # FRED — economic time series (full envelope preserved)
+      # ----------------------------------------------------------------------
+      - name: fred_series_raw
+        description: >
+          FRED API responses, one row per series, raw_response as VARIANT.
+          Envelope is preserved intact — observations live at
+          raw_response:observations. Contrast with BLS which is pre-unwrapped.
+        columns:
+          - name: series_id
+            description: FRED series identifier (e.g. UNRATE, FEDFUNDS). Derived from filename.
+          - name: pulled_date
+            description: Date the file was last written to S3 (from METADATA$FILE_LAST_MODIFIED).
+          - name: raw_response
+            description: Full FRED API response as VARIANT.
+
+      # ----------------------------------------------------------------------
+      # BLS — economic time series (envelope pre-unwrapped by extractor)
+      # ----------------------------------------------------------------------
+      - name: bls_series_raw
+        description: >
+          BLS API responses, one row per series, raw_response as VARIANT.
+          Envelope is pre-unwrapped by bls.py — observations live at
+          raw_response:data (NOT raw_response:Results.series[0].data, which
+          would be the native BLS shape). This asymmetry vs FRED is
+          deliberate, documented in 06_sbli_bls.sql.
+        columns:
+          - name: series_id
+            description: BLS series identifier (e.g. LNS14000000). Derived from filename.
+          - name: pulled_date
+            description: Date the extractor hit the BLS API (from JSON's extracted_at field).
+          - name: raw_response
+            description: Pre-unwrapped BLS payload with keys {data, extracted_at, series_id}.

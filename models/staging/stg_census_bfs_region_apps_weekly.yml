@@ -1,0 +1,38 @@
+version: 2
+
+models:
+  - name: stg_census_bfs_region_apps_weekly
+    description: >
+      Census BFS weekly business applications by Census region (4 regions).
+      All metrics NSA. Joins to the date table on (observation_year, observation_week).
+    columns:
+      - name: observation_year
+        description: Calendar year.
+        tests:
+          - not_null
+      - name: observation_week
+        description: ISO-style week number within the year (1-53).
+        tests:
+          - not_null
+      - name: region_name
+        description: Census region name (e.g. "Northeast", "South").
+        tests:
+          - not_null
+      - name: region_code
+        description: Numeric Census region code (1-4).
+        tests:
+          - not_null
+          - accepted_values:
+              values: [1, 2, 3, 4]
+              quote: false
+      - name: business_applications
+        description: Total business applications (BA_NSA in source).
+        tests:
+          - not_null
+      - name: source_file
+        description: S3 path of the source CSV.
+        tests:
+          - not_null
+    tests:
+      - unique:
+          column_name: "(observation_year || '|' || observation_week || '|' || region_name)"

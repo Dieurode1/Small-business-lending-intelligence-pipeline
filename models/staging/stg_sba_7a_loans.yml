@@ -1,0 +1,103 @@
+version: 2
+
+models:
+  - name: stg_sba_7a_loans
+    description: >
+      SBA 7(a) loan-level data, lightly cleaned from RAW. One row per source
+      row (1:1 grain). Bank-based lender structure — contrast with 504 which
+      uses CDC + third-party-lender.
+
+      IMPORTANT — natural key: SBA FOIA does not have a unique loan
+      identifier. Real-world franchise and multi-location borrowers produce
+      multiple identical (borrower, date, amount) rows. l2locid is a
+      non-unique reference (~6,800 distinct values across 1.9M rows).
+      sba_7a_loan_row_id is a deterministic surrogate generated via
+      ROW_NUMBER() — use it for downstream joins and uniqueness assertions.
+
+      Known data quirks: ~25 loans (0.001%) have NULL borrower_name —
+      these are SBA "EXEMPT FROM DISCLOSURE" loans where borrower identity
+      is suppressed. The loans themselves are valid (real banks, real
+      amounts, normal statuses). A handful of historical rows (e.g. one
+      1995 loan to "JOY ONE HOUR CLEANERS") have negative approval
+      amounts — likely 1990s data entry quirks, flagged via warning, not
+      blocking.
+
+    columns:
+      - name: sba_7a_loan_row_id
+        description: >
+          Deterministic surrogate key (ROW_NUMBER ordered by approval_date,
+          borrower_name, gross_approval_amount, bank_name, naics_code,
+          source_file). Guaranteed unique per row. Use this — not loan_id —
+          for joins and grain assertions.
+        tests:
+          - not_null
+          - unique
+
+      - name: loan_id
+        description: >
+          SBA's l2locid reference — NOT a unique loan identifier despite the
+          name. Documented here for traceability back to RAW, but downstream
+          models should join on sba_7a_loan_row_id instead.
+
+      - name: loan_program
+        description: Should always be "7(A)" in this model.
+        tests:
+          - not_null
+
+      - name: borrower_name
+        description: >
+          Source column borrname. Borrower business name. NULL for SBA's
+          EXEMPT FROM DISCLOSURE loans (~25 rows, 0.001%) where borrower
+          identity is legally suppressed. Loan-level data on these rows
+          is still valid.
+
+      - name: borrower_state
+        description: >
+          Source column borrstate. 2-character US state code. NULL is
+          allowed (legitimate when SBA didn't record state). Rows with
+          length > 2 (zip codes in state field) are filtered out upstream.
+
+      - name: gross_approval_amount
+        description: Source column grossapproval. Total approved loan amount in USD.
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+              config:
+                severity: warn
+
+      - name: approval_date
+        description: Source column approvaldate. Date SBA approved the loan.
+        tests:
+          - not_null
+
+      - name: approval_fiscal_year
+        description: >
+          Source column approvalfiscalyear. SBA fiscal year (Oct-Sep) of
+          approval. Range is FY1991 through current.
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: "between 1991 and year(current_date()) + 1"
+              config:
+                severity: warn
+
+      - name: interest_rate_type
+        description: >
+          Source column fixedorvariableinterestind. 'F' for fixed,
+          'V' for variable. May be NULL for older loans.
+
+      - name: naics_code
+        description: >
+          Source column naicscode. NAICS industry classification code for
+          the borrower business. May be NULL.
+
+      - name: loan_status
+        description: >
+          Source column loanstatus. Loan lifecycle status (e.g. PAID IN FULL,
+          CHARGED OFF, EXEMPT FROM DISCLOSURE).
+
+      - name: source_file
+        description: S3 path of the source CSV (carried through from RAW).
+        tests:
+          - not_null
