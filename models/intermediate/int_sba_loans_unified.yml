@@ -1,0 +1,190 @@
+version: 2
+
+models:
+  - name: int_sba_loans_unified
+    description: >
+      Unified SBA loan population: stg_sba_7a_loans + stg_sba_504_loans
+      union'd into a common shape. Grain is one row per loan (~2.17M rows).
+      Generic lender columns (primary_lender_name, lender_type) enable
+      cross-program analytics; program-specific columns (bank_*, cdc_*,
+      third_party_*) are preserved for drilldown.
+
+      Status normalized to a canonical taxonomy at this layer — see
+      loan_status (granular) and loan_status_category (coarse). is_charged_off
+      and is_sba_purchased are tracked separately because credit risk
+      analytics typically combine them as "true default rate."
+
+    columns:
+      - name: sba_loan_row_id
+        description: >
+          Cross-program surrogate key, prefixed with program ('7A_' or '504_')
+          to ensure uniqueness across the union. Use this for downstream joins.
+        tests:
+          - not_null
+          - unique
+
+      - name: loan_program
+        description: '7(A) or 504. Tells you which SBA program originated the loan.'
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['7A', '504']
+
+      - name: lender_type
+        description: 'BANK (for 7a) or CDC (for 504). Tells you the kind of SBA-facing lender.'
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['BANK', 'CDC']
+
+      - name: primary_lender_name
+        description: >
+          Generic name for the SBA-facing lender. Equals bank_name for 7(a)
+          and cdc_name for 504. Use this for cross-program "who originated"
+          analytics.
+
+      - name: bank_name
+        description: >
+          7(a) only — bank that originated the loan. NULL for all 504 rows.
+          Use primary_lender_name for cross-program lender analytics.
+
+      - name: cdc_name
+        description: >
+          504 only — Certified Development Company that originated the
+          SBA-backed debenture. NULL for all 7(a) rows.
+
+      - name: third_party_lender_name
+        description: >
+          504 only — bank that funded the first-mortgage portion alongside
+          the CDC. NULL for all 7(a) rows. May also be NULL for 504 loans
+          without third-party participation.
+
+      - name: third_party_dollars
+        description: >
+          504 only — dollar amount contributed by the third-party lender
+          (not the SBA-backed portion). NULL for 7(a).
+
+      - name: gross_approval_amount
+        description: >
+          SBA-approved loan amount in USD. For 504 this is the SBA debenture
+          portion only — does not include third-party dollars.
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+              config:
+                severity: warn
+
+      - name: sba_guaranteed_amount
+        description: >
+          7(a) only — the guaranteed portion of the loan amount. NULL for 504
+          (504 uses a debenture structure, not a guarantee).
+
+      - name: approval_date
+        description: Date SBA approved the loan.
+        tests:
+          - not_null
+
+      - name: approval_fiscal_year
+        description: SBA fiscal year (Oct-Sep) of approval. FY1991 through current.
+        tests:
+          - not_null
+
+      - name: approval_year
+        description: Calendar year of approval, derived from approval_date.
+        tests:
+          - not_null
+
+      - name: approval_month
+        description: Calendar month of approval (1-12), derived from approval_date.
+        tests:
+          - not_null
+          - accepted_values:
+              values: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+              quote: false
+
+      - name: approval_quarter
+        description: Calendar quarter of approval (1-4), derived from approval_date.
+        tests:
+          - not_null
+          - accepted_values:
+              values: [1, 2, 3, 4]
+              quote: false
+
+      - name: loan_status
+        description: >
+          Canonical normalized status (e.g. PAID_IN_FULL, CHARGED_OFF,
+          CURRENT, PAST_DUE). 13 possible values plus UNKNOWN for unmappable
+          rows (~251 blank entries in 504 source).
+        tests:
+          - not_null
+          - accepted_values:
+              values:
+                - 'PAID_IN_FULL'
+                - 'CHARGED_OFF'
+                - 'CURRENT'
+                - 'PAST_DUE'
+                - 'IN_DEFERMENT'
+                - 'CANCELED'
+                - 'NOT_FUNDED'
+                - 'IN_LIQUIDATION'
+                - 'IN_CATCH_UP'
+                - 'SBA_PURCHASED'
+                - 'COMMITTED'
+                - 'SOLD'
+                - 'PURCHASE_PENDING'
+                - 'UNKNOWN'
+
+      - name: loan_status_raw
+        description: Original source status string, preserved for audit traceability.
+
+      - name: loan_status_category
+        description: >
+          Coarse status rollup for high-level analytics. COMPLETED_PAID,
+          COMPLETED_LOSS, ACTIVE, INACTIVE, RESOLVED_OTHER, or UNKNOWN.
+        tests:
+          - not_null
+          - accepted_values:
+              values:
+                - 'COMPLETED_PAID'
+                - 'COMPLETED_LOSS'
+                - 'ACTIVE'
+                - 'INACTIVE'
+                - 'RESOLVED_OTHER'
+                - 'UNKNOWN'
+
+      - name: months_past_due
+        description: >
+          For 504 PAST_DUE loans, the number of months behind (parsed from
+          source strings like "3 MONTHS PAST DUE"). NULL when not applicable
+          or not a 504 loan with a months-past-due status.
+
+      - name: is_paid_in_full
+        description: TRUE when loan_status = 'PAID_IN_FULL'.
+        tests:
+          - not_null
+
+      - name: is_charged_off
+        description: TRUE when loan_status = 'CHARGED_OFF'.
+        tests:
+          - not_null
+
+      - name: is_sba_purchased
+        description: >
+          TRUE when loan_status = 'SBA_PURCHASED'. Separated from
+          is_charged_off because "true default rate" in credit risk includes
+          both — combine them when computing lender performance metrics.
+        tests:
+          - not_null
+
+      - name: is_active
+        description: >
+          TRUE when loan is in any active state (CURRENT, PAST_DUE,
+          IN_DEFERMENT, IN_CATCH_UP, IN_LIQUIDATION).
+        tests:
+          - not_null
+
+      - name: source_file
+        description: S3 path of the source CSV the row came from.
+        tests:
+          - not_null
