@@ -1,0 +1,149 @@
+version: 2
+
+models:
+  - name: fct_loan_performance_by_industry
+    description: >
+      Industry-level SBA loan performance aggregated by approval fiscal year.
+      Grain: one row per (naics_code, approval_fiscal_year).
+
+      Built at the natural 6-digit NAICS grain so sub-sector detail is
+      preserved. naics_sector_code and naics_sector_name (first 2 digits,
+      mapped to the standard NAICS sector) are derived columns enabling
+      sector-level rollups at query time without losing granularity.
+
+      Vintage analysis framing — each row is loans ORIGINATED in FY[X] for a
+      given industry. For meaningful default rates, filter to seasoned
+      vintages (at least 5-7 years old) and apply a total_loans threshold to
+      avoid noise from tiny buckets.
+
+      Note: SBA data spans 35+ years across multiple NAICS revisions, so
+      both legacy (7221xx) and current (7225xx) restaurant codes coexist —
+      this is expected historical drift, not a join artifact.
+
+      Headline metric: true_default_rate = (charged_off + sba_purchased) / total.
+
+    columns:
+      - name: naics_code
+        description: 6-digit NAICS code. 'UNKNOWN' for loans with no NAICS in source.
+        tests:
+          - not_null
+
+      - name: naics_sector_code
+        description: First 2 digits of naics_code (the NAICS sector). 'UNKNOWN' when no code.
+        tests:
+          - not_null
+
+      - name: naics_sector_name
+        description: >
+          Human-readable NAICS sector name, derived from naics_sector_code.
+          ~20 standard sectors plus 'Unknown'.
+        tests:
+          - not_null
+
+      - name: naics_description
+        description: Industry description from the source FOIA data.
+
+      - name: approval_fiscal_year
+        description: SBA fiscal year (Oct-Sep) of loan origination.
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: "between 1991 and year(current_date()) + 1"
+              config:
+                severity: warn
+
+      - name: total_loans
+        description: Count of loans originated in this NAICS code / fiscal year.
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: "> 0"
+
+      - name: total_approved_dollars
+        description: Sum of gross_approval_amount in USD.
+        tests:
+          - not_null
+
+      - name: avg_loan_size
+        description: Average loan size in USD.
+        tests:
+          - not_null
+
+      - name: distinct_lenders
+        description: Number of distinct lenders serving this industry/year.
+        tests:
+          - not_null
+
+      - name: distinct_states
+        description: Number of distinct project states for this industry/year.
+        tests:
+          - not_null
+
+      - name: total_paid_in_full
+        description: Count of originated loans that reached PAID_IN_FULL.
+        tests:
+          - not_null
+
+      - name: total_charged_off
+        description: Count of originated loans formally charged off.
+        tests:
+          - not_null
+
+      - name: total_sba_purchased
+        description: Count where SBA bought the guarantee (PURCH NOT C/O).
+        tests:
+          - not_null
+
+      - name: total_active
+        description: Count still active. Trends toward zero for older vintages.
+        tests:
+          - not_null
+
+      - name: total_charge_off_dollars
+        description: Sum of gross_charge_off_amount for charged-off loans.
+
+      - name: charge_off_rate
+        description: total_charged_off / total_loans.
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: "between 0 and 1"
+
+      - name: true_default_rate
+        description: >
+          (total_charged_off + total_sba_purchased) / total_loans.
+          Headline credit-risk metric inclusive of SBA guarantee payouts.
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: "between 0 and 1"
+
+      - name: paid_in_full_rate
+        description: total_paid_in_full / total_loans.
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: "between 0 and 1"
+
+      - name: active_rate
+        description: total_active / total_loans.
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: "between 0 and 1"
+
+      - name: primary_program
+        description: '7A, 504, or MIXED (most loans by program).'
+        tests:
+          - accepted_values:
+              values: ['7A', '504', 'MIXED']
+
+      - name: loans_7a
+        description: Count of 7(a) program loans.
+
+      - name: loans_504
+        description: Count of 504 program loans.
+
+    tests:
+      - unique:
+          column_name: "(naics_code || '|' || approval_fiscal_year::string)"

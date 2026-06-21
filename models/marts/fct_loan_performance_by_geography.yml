@@ -1,0 +1,145 @@
+version: 2
+
+models:
+  - name: fct_loan_performance_by_geography
+    description: >
+      State-level SBA loan performance aggregated by approval fiscal year.
+      Grain: one row per (project_state, approval_fiscal_year).
+
+      Uses project_state (where the funded economic activity lands) rather
+      than borrower_state. census_region is derived to enable regional
+      rollups and to set up future joins to Census BFS business-formation
+      data, which is published at the Census-region level.
+
+      Vintage analysis framing — each row is loans ORIGINATED in FY[X] in a
+      given state. For meaningful default rates, filter to seasoned vintages
+      (at least 5-7 years old).
+
+      Headline metric: true_default_rate = (charged_off + sba_purchased) / total.
+
+    columns:
+      - name: project_state
+        description: >
+          2-character state/territory code where the funded project is
+          located. Includes the 50 states + DC plus US territories and
+          freely-associated states (PR, GU, VI, etc.).
+        tests:
+          - not_null
+
+      - name: census_region
+        description: >
+          Standard 4-region Census scheme (Northeast, Midwest, South, West)
+          mapped from project_state. 'US Territories' is a catch-all for
+          outlying areas Census does not assign to a region — includes true
+          US territories (PR, GU, VI, MP, AS) and freely-associated states
+          (PW, FM, MH). Census BFS data covers only the 50 states + DC, so
+          territories fall outside any region-level join by design.
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Northeast', 'Midwest', 'South', 'West', 'US Territories']
+
+      - name: approval_fiscal_year
+        description: SBA fiscal year (Oct-Sep) of loan origination.
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: "between 1991 and year(current_date()) + 1"
+              config:
+                severity: warn
+
+      - name: total_loans
+        description: Count of loans originated in this state / fiscal year.
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: "> 0"
+
+      - name: total_approved_dollars
+        description: Sum of gross_approval_amount in USD.
+        tests:
+          - not_null
+
+      - name: avg_loan_size
+        description: Average loan size in USD.
+        tests:
+          - not_null
+
+      - name: distinct_lenders
+        description: Number of distinct lenders active in this state/year.
+        tests:
+          - not_null
+
+      - name: distinct_naics_served
+        description: Number of distinct NAICS codes funded in this state/year.
+        tests:
+          - not_null
+
+      - name: total_paid_in_full
+        description: Count of originated loans that reached PAID_IN_FULL.
+        tests:
+          - not_null
+
+      - name: total_charged_off
+        description: Count of originated loans formally charged off.
+        tests:
+          - not_null
+
+      - name: total_sba_purchased
+        description: Count where SBA bought the guarantee (PURCH NOT C/O).
+        tests:
+          - not_null
+
+      - name: total_active
+        description: Count still active. Trends toward zero for older vintages.
+        tests:
+          - not_null
+
+      - name: total_charge_off_dollars
+        description: Sum of gross_charge_off_amount for charged-off loans.
+
+      - name: charge_off_rate
+        description: total_charged_off / total_loans.
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: "between 0 and 1"
+
+      - name: true_default_rate
+        description: >
+          (total_charged_off + total_sba_purchased) / total_loans.
+          Headline credit-risk metric inclusive of SBA guarantee payouts.
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: "between 0 and 1"
+
+      - name: paid_in_full_rate
+        description: total_paid_in_full / total_loans.
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: "between 0 and 1"
+
+      - name: active_rate
+        description: total_active / total_loans.
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: "between 0 and 1"
+
+      - name: primary_program
+        description: '7A, 504, or MIXED (most loans by program).'
+        tests:
+          - accepted_values:
+              values: ['7A', '504', 'MIXED']
+
+      - name: loans_7a
+        description: Count of 7(a) program loans.
+
+      - name: loans_504
+        description: Count of 504 program loans.
+
+    tests:
+      - unique:
+          column_name: "(project_state || '|' || approval_fiscal_year::string)"
