@@ -1,0 +1,153 @@
+version: 2
+
+models:
+  - name: fct_lender_performance
+    description: >
+      Lender-level performance metrics aggregated by approval fiscal year.
+      Grain: one row per (lender_name, lender_type, approval_fiscal_year).
+      
+      Vintage analysis framing — each row represents loans this lender
+      ORIGINATED in FY[X], with performance metrics reflecting how those
+      originations eventually performed. This is the canonical credit-risk
+      view, not a point-in-time portfolio snapshot.
+      
+      Key analytical caveat: recent vintages (FY2024+) have unreliable
+      default rates because loans haven't had time to season. For meaningful
+      vintage analysis, filter to vintages at least 5-7 years old.
+      
+      Headline metric: true_default_rate = (charged_off + sba_purchased) / total.
+      This is the "real" default rate inclusive of SBA's guarantee payouts —
+      higher than the formal charge-off rate but reflects actual credit losses.
+    
+    columns:
+      - name: lender_name
+        description: >
+          Name of the SBA-facing lender (bank for 7a, CDC for 504).
+          Cleaned from primary_lender_name in int_sba_loans_unified.
+        tests:
+          - not_null
+      
+      - name: lender_type
+        description: BANK (7a) or CDC (504).
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['BANK', 'CDC']
+      
+      - name: approval_fiscal_year
+        description: SBA fiscal year (Oct-Sep) of loan origination.
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: "between 1991 and year(current_date()) + 1"
+              config:
+                severity: warn
+      
+      - name: total_loans
+        description: Count of loans originated by this lender in this fiscal year.
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: "> 0"
+      
+      - name: total_approved_dollars
+        description: Sum of gross_approval_amount in USD.
+        tests:
+          - not_null
+      
+      - name: avg_loan_size
+        description: Average loan size in USD.
+        tests:
+          - not_null
+      
+      - name: total_paid_in_full
+        description: Count of originated loans that reached PAID_IN_FULL status.
+        tests:
+          - not_null
+      
+      - name: total_charged_off
+        description: Count of originated loans formally charged off.
+        tests:
+          - not_null
+      
+      - name: total_sba_purchased
+        description: >
+          Count of originated loans where SBA bought the guarantee
+          (PURCH NOT C/O status). Includes loans that may have later
+          resolved into PAID_IN_FULL or CHARGED_OFF — at the time of this
+          vintage analysis, those resolved outcomes appear in their
+          terminal status columns instead.
+        tests:
+          - not_null
+      
+      - name: total_active
+        description: >
+          Count of originated loans still active (CURRENT, PAST_DUE, etc.).
+          Trending toward zero for older vintages as loans resolve.
+        tests:
+          - not_null
+      
+      - name: total_charge_off_dollars
+        description: Sum of gross_charge_off_amount for charged-off loans.
+      
+      - name: charge_off_rate
+        description: total_charged_off / total_loans. Formal charge-off rate.
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: "between 0 and 1"
+      
+      - name: true_default_rate
+        description: >
+          (total_charged_off + total_sba_purchased) / total_loans.
+          Headline credit-risk metric. Higher than charge_off_rate;
+          reflects actual SBA losses including guarantee payouts.
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: "between 0 and 1"
+      
+      - name: paid_in_full_rate
+        description: total_paid_in_full / total_loans.
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: "between 0 and 1"
+      
+      - name: active_rate
+        description: total_active / total_loans.
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: "between 0 and 1"
+      
+      - name: distinct_states_served
+        description: Number of distinct project_state values across this lender's loans.
+        tests:
+          - not_null
+      
+      - name: distinct_naics_served
+        description: Number of distinct NAICS codes across this lender's loans.
+        tests:
+          - not_null
+      
+      - name: primary_state
+        description: >
+          State with the highest dollar volume of loans for this lender
+          in this fiscal year. Where this lender's market is.
+      
+      - name: primary_program
+        description: '7A, 504, or MIXED (most loans by program).'
+        tests:
+          - accepted_values:
+              values: ['7A', '504', 'MIXED']
+      
+      - name: loans_7a
+        description: Count of 7(a) program loans.
+      
+      - name: loans_504
+        description: Count of 504 program loans.
+    
+    tests:
+      - unique:
+          column_name: "(lender_name || '|' || lender_type || '|' || approval_fiscal_year::string)"

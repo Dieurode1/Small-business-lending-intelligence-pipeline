@@ -1,0 +1,54 @@
+version: 2
+
+models:
+  - name: int_us_apps_with_dates
+    description: >
+      National-level Census BFS weekly applications joined to the date
+      table. Grain: one row per week. INNER JOIN — row count matches
+      stg_census_bfs_us_apps_weekly (verified at build time).
+    columns:
+      - name: observation_year
+        description: Calendar year.
+        tests:
+          - not_null
+      - name: observation_week
+        description: ISO-style week number (1-53).
+        tests:
+          - not_null
+      - name: week_start_date
+        description: First day of the week, from date table.
+        tests:
+          - not_null
+      - name: week_end_date
+        description: Last day of the week, from date table.
+        tests:
+          - not_null
+      - name: observation_month
+        description: Calendar month (1-12), derived from week_start_date.
+        tests:
+          - not_null
+          - accepted_values:
+              values: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+              quote: false
+      - name: observation_quarter
+        description: Calendar quarter (1-4), derived from week_start_date.
+        tests:
+          - not_null
+          - accepted_values:
+              values: [1, 2, 3, 4]
+              quote: false
+      - name: observation_year_month
+        description: Year-month string ('YYYY-MM') for easy month-bucketing.
+        tests:
+          - not_null
+      - name: business_applications
+        description: Total business applications (NSA).
+        tests:
+          - not_null
+      - name: source_file
+        description: S3 path of the source CSV.
+        tests:
+          - not_null
+    tests:
+      - unique:
+          column_name: "(observation_year || '|' || observation_week)"
