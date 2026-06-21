@@ -1,0 +1,41 @@
+version: 2
+
+models:
+  - name: int_economic_indicators_unified
+    description: >
+      Monthly macro spine: one row per calendar month from 1946 to present,
+      with every FRED and BLS economic series resampled to a monthly grain.
+      Daily series (DGS10) are monthly-averaged; quarterly series (GDP,
+      DRTSCILM) are forward-filled with *_is_carried flags. Series are NULL
+      for months before they existed. Consumed by fct_loans_with_macro_context.
+
+    columns:
+      - name: year_month
+        description: First-of-month date. Grain key.
+        tests:
+          - not_null
+          - unique
+      - name: year
+        description: Calendar year.
+        tests:
+          - not_null
+      - name: month
+        description: Calendar month (1-12).
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: "between 1 and 12"
+      - name: quarter
+        description: Calendar quarter (1-4).
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: "between 1 and 4"
+      - name: gdp_is_carried
+        description: TRUE when gdp was carried forward within a quarter.
+        tests:
+          - not_null
+      - name: lending_standards_is_carried
+        description: TRUE when lending_standards was carried forward within a quarter.
+        tests:
+          - not_null

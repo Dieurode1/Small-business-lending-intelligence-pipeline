@@ -1,0 +1,153 @@
+version: 2
+
+models:
+  - name: fct_loans_with_macro_context
+    description: >
+      Monthly SBA loan-origination cohorts joined to the macroeconomic
+      environment at time of approval. Grain: one row per approval_year_month.
+
+      Each row aggregates all loans approved that month (volume, dollars,
+      outcome counts, true_default_rate) and attaches the macro snapshot for
+      that month from int_economic_indicators_unified.
+
+      Vintage framing: metrics reflect eventual performance of loans
+      ORIGINATED that month. Recent cohorts have not seasoned — filter to
+      cohorts 5-7+ years old for meaningful default rates.
+
+      Cohorts approved before a macro series existed (e.g. pre-2007 for BLS)
+      carry NULLs for that series, by design.
+
+      Headline finding this mart surfaces: the 2006-2007 origination vintages
+      (approved into loose-credit froth) defaulted far worse than 2009-2013
+      vintages (approved under tightened post-crisis underwriting) — i.e.
+      underwriting discipline at origination outweighed the macro climate the
+      loan was born into.
+
+    columns:
+      - name: approval_year_month
+        description: First-of-month date of the approval cohort. Grain key.
+        tests:
+          - not_null
+          - unique
+
+      - name: approval_year
+        description: Calendar year of approval (from the macro spine).
+        tests:
+          - not_null
+
+      - name: approval_quarter
+        description: Calendar quarter (1-4) of approval.
+        tests:
+          - not_null
+
+      - name: total_loans
+        description: Count of loans approved in this month.
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: "> 0"
+
+      - name: total_approved_dollars
+        description: Sum of gross_approval_amount for the cohort.
+        tests:
+          - not_null
+
+      - name: avg_loan_size
+        description: Average loan size for the cohort.
+        tests:
+          - not_null
+
+      - name: total_paid_in_full
+        description: Count of cohort loans that reached PAID_IN_FULL.
+        tests:
+          - not_null
+
+      - name: total_charged_off
+        description: Count of cohort loans formally charged off.
+        tests:
+          - not_null
+
+      - name: total_sba_purchased
+        description: Count where SBA purchased the guarantee (PURCH NOT C/O).
+        tests:
+          - not_null
+
+      - name: total_active
+        description: Count still active. Higher for younger cohorts.
+        tests:
+          - not_null
+
+      - name: total_charge_off_dollars
+        description: Sum of gross_charge_off_amount for the cohort.
+
+      - name: charge_off_rate
+        description: total_charged_off / total_loans.
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: "between 0 and 1"
+
+      - name: true_default_rate
+        description: >
+          (total_charged_off + total_sba_purchased) / total_loans.
+          Headline credit-risk metric for the cohort.
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: "between 0 and 1"
+
+      - name: paid_in_full_rate
+        description: total_paid_in_full / total_loans.
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: "between 0 and 1"
+
+      - name: active_rate
+        description: total_active / total_loans.
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: "between 0 and 1"
+
+      # --- Macro context (FRED) ---
+      - name: fred_fed_funds_rate
+        description: Federal Funds Rate (%) that month. NULL before series start.
+      - name: fred_treasury_10yr
+        description: 10-Year Treasury yield (%), monthly average of daily values.
+      - name: fred_unemployment_rate
+        description: Unemployment rate (%) per FRED UNRATE.
+      - name: fred_cpi
+        description: CPI (index) per FRED CPIAUCSL.
+      - name: fred_ci_loans
+        description: Commercial & Industrial loans outstanding (FRED BUSLOANS).
+      - name: fred_recession_probability
+        description: Smoothed US recession probability (%) per FRED RECPROUSM156N.
+      - name: gdp
+        description: GDP (forward-filled across quarter). See gdp_is_carried.
+      - name: gdp_is_carried
+        description: TRUE when gdp is carried from the quarter's publication month.
+        tests:
+          - not_null
+      - name: lending_standards
+        description: >
+          Net % of banks tightening C&I standards (FRED DRTSCILM, SLOOS),
+          forward-filled across quarter. Negative = net loosening.
+      - name: lending_standards_is_carried
+        description: TRUE when lending_standards is carried within the quarter.
+        tests:
+          - not_null
+
+      # --- Macro context (BLS) ---
+      - name: bls_unemployment_rate
+        description: Unemployment rate (%) per BLS LNS14000000. Cross-checks FRED.
+      - name: bls_nonfarm_employment
+        description: Total nonfarm employment (thousands) per BLS CES0000000001.
+      - name: bls_avg_hourly_earnings
+        description: Average hourly earnings ($) per BLS CES0500000003.
+      - name: bls_cpi
+        description: CPI-U (index) per BLS CUUR0000SA0. Cross-checks FRED CPI.
+      - name: bls_labor_force_participation
+        description: Labor force participation rate (%) per BLS LNS11300000.
+      - name: bls_job_openings
+        description: Job openings (thousands, JOLTS) per BLS JTS...JOL.
