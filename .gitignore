@@ -21,3 +21,7 @@ logs
 target
 dbt_packages 
 dbt_internal_packages/
+
+sbli_orchestration/.tmp_dagster_home_*/
+__pycache__/
+*.pyc
