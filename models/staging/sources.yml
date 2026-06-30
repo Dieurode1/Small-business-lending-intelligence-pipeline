@@ -12,6 +12,9 @@ sources:
 
     tables:
       - name: sba_7a_loans
+        meta:
+          dagster:
+            asset_key: ["sba_7a_raw_load"]
         description: >
           SBA 7(a) program loan-level data from FOIA. Bank-based lender
           structure (bankname, bankfdicnumber, bankstate). One row per loan.
@@ -28,6 +31,9 @@ sources:
             description: SBA fiscal year (Oct–Sep) of approval.
 
       - name: sba_504_loans
+        meta:
+          dagster:
+            asset_key: ["sba_504_raw_load"]
         description: >
           SBA 504 program loan-level data from FOIA. CDC + third-party-lender
           structure (cdc_name, thirdpartylender_name) — distinct schema from 7(a).
@@ -54,6 +60,9 @@ sources:
           in intermediate models to attach human-readable dates.
 
       - name: fred_series_raw
+        meta:
+          dagster:
+            asset_key: ["fred_raw_load"]
         description: >
           FRED API responses, one row per series, raw_response as VARIANT.
           Envelope preserved intact — observations live at
@@ -67,6 +76,9 @@ sources:
             description: Full FRED API response as VARIANT.
 
       - name: bls_series_raw
+        meta:
+          dagster:
+            asset_key: ["bls_raw_load"]
         description: >
           BLS API responses, one row per series, raw_response as VARIANT.
           Envelope pre-unwrapped by bls.py — observations live at
