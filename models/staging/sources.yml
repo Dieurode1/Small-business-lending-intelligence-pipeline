@@ -43,18 +43,30 @@ sources:
             description: SBA's loan identifier within the 504 program.
 
       - name: census_bfs_state_apps_weekly
+        meta:
+          dagster:
+            asset_key: ["census_state_raw_load"]
         description: >
           Weekly business applications by state (50 states + DC).
           Grain (state, week). NSA only — seasonally adjusted state series
           isn't published by Census.
 
       - name: census_bfs_region_apps_weekly
+        meta:
+          dagster:
+            asset_key: ["census_region_raw_load"]
         description: Weekly business applications by Census region (4 regions). Grain (region, week).
 
       - name: census_bfs_us_apps_weekly
+        meta:
+          dagster:
+            asset_key: ["census_us_raw_load"]
         description: Weekly business applications, national total. Grain (week).
 
       - name: census_bfs_date_table
+        meta:
+          dagster:
+            asset_key: ["census_date_raw_load"]
         description: >
           Week-id to calendar-date lookup. Joined to the apps_weekly tables
           in intermediate models to attach human-readable dates.
