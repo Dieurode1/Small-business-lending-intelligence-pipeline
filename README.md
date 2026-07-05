@@ -176,7 +176,7 @@ writeup.
 **Next:**
 - [ ] Streamlit app over the marts (the diagram's final box)
 - [ ] CI (GitHub Actions: dbt lint + compile)
-- [ ] Group dbt assets by layer in the Dagster UI (staging / intermediate / marts)
+- [x] Group dbt assets by layer in the Dagster UI (staging / intermediate / marts)
 
 > [!NOTE]
 > **On scheduling.** A production deployment would define a daily Dagster schedule and run the
