@@ -1,23 +1,33 @@
-# Small Business Lending Intelligence (SBLI) Pipeline
+<h1 align="center">Small Business Lending Intelligence (SBLI) Pipeline</h1>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white" alt="Python">
+  <img src="https://img.shields.io/badge/Snowflake-Data%20Warehouse-29B5E8?logo=snowflake&logoColor=white" alt="Snowflake">
+  <img src="https://img.shields.io/badge/dbt-Transform-FF694B?logo=dbt&logoColor=white" alt="dbt">
+  <img src="https://img.shields.io/badge/Dagster-Orchestration-654FF0?logo=dagster&logoColor=white" alt="Dagster">
+  <img src="https://img.shields.io/badge/AWS-S3-FF9900?logo=amazons3&logoColor=white" alt="AWS S3">
+  <img src="https://img.shields.io/badge/status-working-brightgreen" alt="Status">
+</p>
 
 An end-to-end analytics engineering project that ingests the full public record of SBA
 small-business lending, enriches it with the U.S. macroeconomic environment at each loan's
 origination, and answers a question a bank's credit officer actually asks:
 **were these loans underwritten in a disciplined environment, or a dangerous one?**
 
-The pipeline is built on a modern data stack — Python extractors → S3 → Snowflake → dbt —
-and fully orchestrated in **Dagster**, with data-quality checks gating ingestion and 230+
-tests validating every transformation.
+The pipeline runs on a modern data stack — Python extractors → S3 → Snowflake → dbt —
+fully orchestrated in **Dagster**, with data-quality checks gating ingestion and **250
+data tests** validating every transformation.
 
-> **Headline finding:** SBA loans originated in 2007 defaulted at **31.7%** — vs just **4.9%**
-> for the 2012 vintage (a **6.5x** gap). The boom-era loans weren't doomed by the economy they
-> lived through; they were doomed by the *loose lending standards they were underwritten under*.
-> Underwriting discipline at origination predicts defaults better than the macro climate that
-> follows. <!-- confirm: 31.7 / 4.9 figures are from fct_loans_with_macro_context -->
+> [!IMPORTANT]
+> **Headline finding.** SBA loans originated in **2007 defaulted at 31.7%** — versus just
+> **4.9%** for the **2012** vintage, a **6.5× gap**. The boom-era loans weren't doomed by the
+> economy they lived through; they were doomed by the *loose lending standards they were
+> underwritten under*. **Underwriting discipline at origination predicts defaults better than the
+> macro climate that follows.**
 
 ---
 
-## Architecture
+## 🏗️ Architecture
 
 ```mermaid
 flowchart LR
@@ -33,9 +43,21 @@ flowchart LR
     ORCH -.-> D
     ORCH -.-> F
 
-    classDef box fill:#1a1a1a,stroke:#888,stroke-width:1px,color:#eee;
-    classDef orch fill:#141414,stroke:#666,stroke-width:1px,color:#ccc,font-style:italic;
-    class A,B,C,D,E,F,G box;
+    classDef src   fill:#2d3748,stroke:#a0aec0,color:#fff;
+    classDef py    fill:#1e3a5f,stroke:#3776AB,color:#fff;
+    classDef store fill:#3d2c00,stroke:#FF9900,color:#fff;
+    classDef snow  fill:#0b3d4d,stroke:#29B5E8,color:#fff;
+    classDef dbt   fill:#3d1a12,stroke:#FF694B,color:#fff;
+    classDef plan  fill:#1a1a1a,stroke:#666,color:#aaa,stroke-dasharray:4 3;
+    classDef orch  fill:#221a3d,stroke:#654FF0,color:#fff,font-style:italic;
+
+    class A src;
+    class B py;
+    class C store;
+    class D store;
+    class E snow;
+    class F dbt;
+    class G plan;
     class ORCH orch;
 ```
 
@@ -43,23 +65,23 @@ flowchart LR
 Snowflake ingests those files with `COPY INTO` (via an IAM storage integration — no credentials
 in the pipeline). dbt transforms RAW → staging → intermediate → marts. **Dagster orchestrates the
 entire graph as connected assets** — extractors, RAW loads, and dbt models — with data-quality
-asset checks gating each extractor and 230+ dbt tests validating every model.
+asset checks gating each extractor and 250 dbt tests validating every model.
 
 ---
 
-## What's in the box
+## 🧱 What's in the box
 
 | Layer | Tech | What it does |
 |---|---|---|
 | **Extract** | Python (`requests`, `boto3`) | 4 extractors (SBA, FRED, BLS, Census BFS) → raw files in S3 |
 | **Ingest** | Snowflake `COPY INTO` + storage integration | S3 → Snowflake RAW, run server-side (no local download) |
-| **Transform** | dbt (Snowflake, key-pair auth) | 17 models across staging → intermediate → marts <!-- confirm 17 --> |
+| **Transform** | dbt (Snowflake, key-pair auth) | 17 models across staging → intermediate → marts |
 | **Orchestrate** | Dagster (`dagster-dbt`, `dagster-snowflake`) | One connected asset graph, extractor → marts |
-| **Quality** | Dagster asset checks + dbt tests | DQ checks on ingestion; 230+ tests on transformations <!-- confirm count --> |
+| **Quality** | Dagster asset checks + dbt tests | DQ checks on ingestion; 250 dbt tests on transformations |
 
 ---
 
-## The data
+## 📊 The data
 
 | Source | What | Grain / volume |
 |---|---|---|
@@ -74,7 +96,7 @@ risk analysis instead of a static loan tape.
 
 ---
 
-## Marts
+## 🎯 Marts
 
 Four analytics-ready fact tables, each answering a class of credit-risk question:
 
@@ -91,7 +113,7 @@ charge-offs would understate real defaults.
 
 ---
 
-## Case study
+## 📁 Case study
 
 **[`docs/case_study_pioneer_valley.md`](docs/case_study_pioneer_valley.md)** frames the whole pipeline
 as a solution: a fictional community bank's new Chief Credit Officer brings five real questions, each
@@ -100,9 +122,9 @@ It's the fastest way to see *why* this pipeline matters, not just how it's built
 
 ---
 
-## Project structure
+## 🗂️ Project structure
 
-<!-- confirm this matches the real repo layout; the extractors currently sit at repo root -->
+<!-- confirm this matches the real repo layout -->
 ```
 .
 ├── fred.py  bls.py  census.py  sba.py          # extractors (API/FOIA → S3)
@@ -122,7 +144,7 @@ It's the fastest way to see *why* this pipeline matters, not just how it's built
 
 ---
 
-## Key engineering decisions
+## 🔑 Key engineering decisions
 
 - **"Raw is sacred."** Extractors write canonical (un-dated) S3 keys and overwrite in place; all
   renaming, typing, and JSON flattening happens in dbt staging, never in RAW.
@@ -133,7 +155,7 @@ It's the fastest way to see *why* this pipeline matters, not just how it's built
   asset (`meta.dagster.asset_key`), so lineage flows unbroken from extractor to mart. Census, which
   loads four tables in one step, is modeled as a Dagster multi-asset.
 - **Quality is layered.** Dagster asset checks validate each extract *before* it loads (file present,
-  sane row counts, schema intact); 230+ dbt tests validate every transformation. A range test on the
+  sane row counts, schema intact); 250 dbt tests validate every transformation. A range test on the
   FRED recession-probability column documents and guards its 0–100 scale.
 
 See **[`docs/project_decisions.md`](docs/project_decisions.md)** for the full architecture-decisions
@@ -141,12 +163,12 @@ writeup.
 
 ---
 
-## Status & roadmap
+## ✅ Status & roadmap
 
 **Built and working:**
 - [x] Four Python extractors → S3, each with a data-quality check
 - [x] Snowflake RAW ingestion via `COPY INTO` + storage integration
-- [x] Full dbt project — staging → intermediate → marts (17 models, 230+ tests) <!-- confirm -->
+- [x] Full dbt project — staging → intermediate → marts (17 models, 250 tests)
 - [x] Dagster orchestration — extractors, RAW loads, and dbt as one connected asset graph
 - [x] Data-quality asset checks gating ingestion
 - [x] Pioneer Valley case study (narrative + runnable SQL)
@@ -156,13 +178,14 @@ writeup.
 - [ ] CI (GitHub Actions: dbt lint + compile)
 - [ ] Group dbt assets by layer in the Dagster UI (staging / intermediate / marts)
 
-> **On scheduling:** a production deployment would define a daily Dagster schedule and run the
+> [!NOTE]
+> **On scheduling.** A production deployment would define a daily Dagster schedule and run the
 > dagster-daemon on an always-on host. Running locally, the pipeline is refreshed on demand through
 > the Dagster UI — a deliberate choice, since a laptop isn't a persistent scheduling host.
 
 ---
 
-## Running it
+## ▶️ Running it
 
 <!-- confirm / flesh out to match your actual setup -->
 Requires: a Snowflake account with key-pair auth configured, an S3 bucket, and API keys for FRED/BLS.
