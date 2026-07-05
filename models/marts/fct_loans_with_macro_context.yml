@@ -122,7 +122,14 @@ models:
       - name: fred_ci_loans
         description: Commercial & Industrial loans outstanding (FRED BUSLOANS).
       - name: fred_recession_probability
-        description: Smoothed US recession probability (%) per FRED RECPROUSM156N.
+        description: >
+          Smoothed US recession probability at loan origination (FRED
+          RECPROUSM156N), expressed as a 0-100 percentage (e.g. 78.1 = 78.1%).
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: "between 0 and 100"
+              config:
+                severity: warn
       - name: gdp
         description: GDP (forward-filled across quarter). See gdp_is_carried.
       - name: gdp_is_carried
