@@ -174,7 +174,7 @@ writeup.
 - [x] Pioneer Valley case study (narrative + runnable SQL)
 
 **Next:**
-- [ ] Streamlit app over the marts (the diagram's final box)
+- [x] Streamlit app over the marts (the diagram's final box)
 - [ ] CI (GitHub Actions: dbt lint + compile)
 - [x] Group dbt assets by layer in the Dagster UI (staging / intermediate / marts)
 
