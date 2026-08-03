@@ -65,7 +65,6 @@ cleaned as (
 
         -- Loan terms
         processingmethod                   as processing_method,
-        subprogram                         as sub_program,
         terminmonths                       as term_in_months,
 
         -- Industry classification

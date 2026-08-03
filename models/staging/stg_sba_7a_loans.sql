@@ -65,7 +65,6 @@ cleaned as (
 
         -- Loan terms
         processingmethod                   as processing_method,
-        subprogram                         as sub_program,
         initialinterestrate                as initial_interest_rate,
         fixedorvariableinterestind         as interest_rate_type,
         terminmonths                       as term_in_months,

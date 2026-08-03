@@ -36,48 +36,48 @@ S3_PREFIX_DICT = "sba-data-dictionary"
 
 # Current "as of" date suffix from SBA. Update when SBA publishes a new quarter.
 # See https://data.sba.gov/en/dataset/7-a-504-foia for the latest filenames.
-ASOF = "251231"
+ASOF = "260630"
 
-BASE_URL = "https://data.sba.gov/dataset/0ff8e8e9-b967-4f4e-987c-6ac78c575087/resource"
+BASE_URL = "https://data.sba.gov/sites/default/files/uploaded_resources"
 
 # (filename_stem, source_url, s3_prefix)
 FILES = [
     # 7(a) loans — note: "as-of" with dashes
     (
         "foia_7a_fy1991_fy1999",
-        f"{BASE_URL}/182e9421-ccee-4562-acb3-93b34fb695f2/download/foia-7a-fy1991-fy1999-as-of-{ASOF}.csv",
+        f"{BASE_URL}/FOIA_7a_FY1991_FY1999_asof_{ASOF}.csv",
         S3_PREFIX_7A,
     ),
     (
         "foia_7a_fy2000_fy2009",
-        f"{BASE_URL}/186eb176-b53e-4cbe-ab93-e5c4fb50197d/download/foia-7a-fy2000-fy2009-as-of-{ASOF}.csv",
+        f"{BASE_URL}/FOIA_7a_FY2000_FY2009_asof_{ASOF}.csv",
         S3_PREFIX_7A,
     ),
     (
         "foia_7a_fy2010_fy2019",
-        f"{BASE_URL}/3f838176-6060-44db-9c91-b4acafbcb28c/download/foia-7a-fy2010-fy2019-as-of-{ASOF}.csv",
+        f"{BASE_URL}/FOIA_7a_FY2010_FY2019_asof_{ASOF}.csv",
         S3_PREFIX_7A,
     ),
     (
         "foia_7a_fy2020_present",
-        f"{BASE_URL}/d67d3ccb-2002-4134-a288-481b51cd3479/download/foia-7a-fy2020-present-as-of-{ASOF}.csv",
+        f"{BASE_URL}/FOIA_7a_FY2020_Present_asof_{ASOF}.csv",
         S3_PREFIX_7A,
     ),
     # 504 loans — note: "asof" WITHOUT dashes
     (
         "foia_504_fy1991_fy2009",
-        f"{BASE_URL}/8854d636-599d-463f-a961-7dbdb3bab152/download/foia-504-fy1991-fy2009-asof-{ASOF}.csv",
+        f"{BASE_URL}/FOIA_504_FY1991_FY2009_asof_{ASOF}.csv",
         S3_PREFIX_504,
     ),
     (
         "foia_504_fy2010_present",
-        f"{BASE_URL}/4ad7f0f1-9da6-4d90-8bdb-89a6f821a1a9/download/foia-504-fy2010-present-asof-{ASOF}.csv",
+        f"{BASE_URL}/FOIA_504_FY2010_Present_asof_{ASOF}.csv",
         S3_PREFIX_504,
     ),
     # Data dictionary
     (
         "foia_data_dictionary",
-        f"{BASE_URL}/6898b986-a895-47b4-bb7e-c6b286b23a7b/download/7a_504_foia_data_dictionary.xlsx",
+        f"{BASE_URL}/7a_504_foia_data_dictionary.xlsx",
         S3_PREFIX_DICT,
     ),
 ]

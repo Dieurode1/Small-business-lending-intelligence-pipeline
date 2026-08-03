@@ -27,6 +27,10 @@ S3_BUCKET = os.getenv("S3_BUCKET")
 # These are the analytical bedrock — borrower geography, loan amount, NAICS.
 # Program-specific columns (banks vs CDCs, revolvers, etc.) get validated
 # in dbt staging models per-program.
+#
+# Declared lowercase by convention; header matching is case-insensitive
+# (see stream_count_rows_and_check_header) because SBA publishes MixedCase
+# headers and has changed casing between snapshots.
 SHARED_CORE_COLUMNS = [
     "asofdate", "program",
     "borrname", "borrstate", "borrzip",
@@ -103,7 +107,13 @@ def stream_count_rows_and_check_header(s3, key, expected_cols):
     header_bytes, remainder = buf.split(b"\n", 1)
     header_line = header_bytes.decode("utf-8", errors="replace").strip()
     header = next(csv.reader(io.StringIO(header_line)))
-    missing = [c for c in expected_cols if c not in header]
+
+    # SBA changed header casing in the 260630 snapshot ("BorrName" vs
+    # "borrname"), which failed every column on a literal comparison even
+    # though the data was intact. Normalize both sides so a future flip in
+    # convention — or a stray space in a header cell — is a no-op.
+    header_lower = {h.strip().lower() for h in header}
+    missing = [c for c in expected_cols if c.strip().lower() not in header_lower]
 
     # Count rows by streaming the rest
     row_count = remainder.count(b"\n")
